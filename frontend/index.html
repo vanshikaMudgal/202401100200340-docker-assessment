@@ -1,0 +1,182 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FestPass 2026 Registrations</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f7ff;
+            color: #172033;
+        }
+        .container {
+            max-width: 850px;
+            margin: 65px auto;
+            padding: 20px;
+        }
+        h1 { font-size: 34px; margin-bottom: 10px; }
+        .subtitle { color: #667085; margin-bottom: 25px; }
+        .card {
+            background: white;
+            padding: 28px;
+            border-radius: 14px;
+            box-shadow: 0 5px 25px #15264b12;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 14px;
+            background: #edf2ff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow-wrap: anywhere;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin: 15px 0 7px;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccd3e0;
+            border-radius: 7px;
+            font-size: 15px;
+        }
+        button {
+            background: #3156d9;
+            color: white;
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 7px;
+            cursor: pointer;
+            margin-top: 18px;
+            font-weight: bold;
+        }
+        button:hover { background: #2342b5; }
+        #message { margin-top: 15px; }
+        li { padding: 10px 0; border-bottom: 1px solid #eee; }
+        footer { text-align: center; color: #667085; font-size: 13px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>FestPass 2026 Registrations</h1>
+    <p class="subtitle">Your gateway to campus events and experiences.</p>
+
+    <div class="card">
+        <div class="status" id="health">
+            REGNO 202401100200340 | Checking backend...
+        </div>
+
+        <h2>Register for an Event</h2>
+        <form id="form">
+            <label for="name">Your name</label>
+            <input id="name" name="name" placeholder="Enter your full name"
+                   minlength="2" required>
+
+            <label for="event">Select event</label>
+            <select id="event" name="event">
+                <option>Hackathon</option>
+                <option>Workshop</option>
+                <option>Cultural</option>
+                <option>Sports</option>
+                <option>Tech Talk</option>
+            </select>
+
+            <button type="submit" id="submit">Register</button>
+        </form>
+        <p id="message" role="status"></p>
+    </div>
+
+    <div class="card">
+        <h2>Recent Registrations</h2>
+        <button type="button" id="refresh">Refresh</button>
+        <ul id="registrations">
+            <li>Loading registrations...</li>
+        </ul>
+    </div>
+    <footer>FestPass 2026 | Registration Portal</footer>
+</div>
+
+<script>
+async function checkHealth() {
+    try {
+        const response = await fetch('/api/health');
+        if (!response.ok) throw new Error('Backend unavailable');
+        const data = await response.json();
+
+        document.getElementById('health').textContent =
+            `REGNO 202401100200340 | backend ${data.version || 'available'} | database ${data.database ? 'connected' : 'not connected'}`;
+    } catch {
+        document.getElementById('health').textContent =
+            'REGNO 202401100200340 | Backend connection failed';
+    }
+}
+
+async function loadRegistrations() {
+    const list = document.getElementById('registrations');
+    try {
+        const response = await fetch('/api/registrations');
+        if (!response.ok) throw new Error('Unable to load');
+        const data = await response.json();
+        const rows = Array.isArray(data)
+            ? data : (data.registrations || data.items || []);
+
+        list.replaceChildren();
+        if (!rows.length) {
+            list.innerHTML = '<li>No registrations yet.</li>';
+            return;
+        }
+
+        rows.slice(-10).reverse().forEach(item => {
+            const li = document.createElement('li');
+            li.textContent =
+                `${item.name || item.full_name || 'Attendee'} — ${item.event || item.category || 'Event'}`;
+            list.appendChild(li);
+        });
+    } catch {
+        list.innerHTML = '<li>Could not load registrations.</li>';
+    }
+}
+
+document.getElementById('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const message = document.getElementById('message');
+    const button = document.getElementById('submit');
+    button.disabled = true;
+
+    try {
+        const response = await fetch('/api/registrations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: document.getElementById('name').value.trim(),
+                event: document.getElementById('event').value
+            })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || data.message || 'Registration failed');
+        }
+
+        message.textContent = 'Registration successful!';
+        document.getElementById('form').reset();
+        await loadRegistrations();
+    } catch (error) {
+        message.textContent = 'Error: ' + error.message;
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById('refresh').addEventListener('click', loadRegistrations);
+checkHealth();
+loadRegistrations();
+</script>
+</body>
+</html>
